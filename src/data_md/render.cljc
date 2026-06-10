@@ -1,5 +1,6 @@
 (ns data-md.render
   (:require [clojure.string :as str]
+            [data-md.compat :as compat]
             [data-md.escape :as escape]
             [data-md.labels :as labels]
             [data-md.pprint :as pprint]
@@ -158,7 +159,7 @@
       (number? value)
       (uuid? value)
       (inst? value)
-      (instance? clojure.lang.TaggedLiteral value)))
+      (compat/tagged-literal-value? value)))
 
 (defn render-scalar [value ctx]
   (let [opts (:opts ctx)]
@@ -191,7 +192,7 @@
       (inst? value) (if (= :code (:inst-style opts))
                       (escape/code-span (pprint/compact-pr-str value))
                       (escape/escape-text (str value)))
-      (instance? clojure.lang.TaggedLiteral value) (escape/code-span (pprint/compact-pr-str value))
+      (compat/tagged-literal-value? value) (escape/code-span (pprint/compact-pr-str value))
       :else nil)))
 
 (defn render-fallback [value ctx]
@@ -319,7 +320,7 @@
       :code-block (fenced value opts)
       :map (render-map value ctx)
       :map-with-type (str "**Type:** "
-                          (escape/code-span (-> value class .getName))
+                          (escape/code-span (compat/record-type-name value))
                           "\n\n"
                           (render-map-list value (update ctx :depth inc))))))
 

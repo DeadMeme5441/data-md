@@ -6,10 +6,14 @@
   "Return a deterministic sort key for arbitrary values."
   [opts value]
   (if-let [sort-key-fn (:sort-key-fn opts)]
-    (try
-      (str (sort-key-fn value))
-      (catch Throwable _
-        (pprint/compact-pr-str value)))
+    #?(:clj (try
+              (str (sort-key-fn value))
+              (catch Throwable _
+                (pprint/compact-pr-str value)))
+       :cljs (try
+               (str (sort-key-fn value))
+               (catch :default _
+                 (pprint/compact-pr-str value))))
     (pprint/compact-pr-str value)))
 
 (defn ordered-map-keys
@@ -18,7 +22,8 @@
   (cond
     (or (record? m)
         (sorted? m)
-        (instance? clojure.lang.PersistentArrayMap m))
+        #?(:clj (instance? clojure.lang.PersistentArrayMap m)
+           :cljs false))
     (keys m)
 
     :else

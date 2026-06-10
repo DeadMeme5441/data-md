@@ -8,9 +8,26 @@
   {:extra-paths ["test" "test-resources"]
    :main-opts ["-m" "data-md.test-runner"]}
 
+  :cljs-test
+  {:extra-paths ["test" "test-resources"]
+   :extra-deps {org.clojure/clojurescript {:mvn/version "1.12.145"}}
+   :main-opts ["-m" "cljs.main"
+               "-co" "{:target :nodejs}"
+               "-m" "data-md.cljs-smoke"]}
+
   :build
-  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.14"}}
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.14"}
+          slipset/deps-deploy {:mvn/version "0.2.5"}}
    :ns-default build}
 
+  :deploy
+  {:replace-deps {slipset/deps-deploy {:mvn/version "0.2.5"}}
+   :exec-fn deps-deploy.deps-deploy/deploy
+   :exec-args {:installer :remote
+               :sign-releases? false
+               :pom-file "target/classes/META-INF/maven/net.clojars.deadmeme5441/data-md/pom.xml"
+               :artifact "target/data-md-0.1.0.jar"}}
+
   :dev
-  {:extra-paths ["dev" "test" "test-resources"]}}}
+  {:extra-paths ["dev" "test" "test-resources"]
+   :extra-deps {org.clojure/clojurescript {:mvn/version "1.12.145"}}}}}

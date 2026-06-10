@@ -2,17 +2,16 @@
 
 Render Clojure data and EDN files as readable GitHub-Flavored Markdown.
 
+[![Clojars Project](https://img.shields.io/clojars/v/net.clojars.deadmeme5441/data-md.svg)](https://clojars.org/net.clojars.deadmeme5441/data-md)
+
 `data-md` is a small Clojure library for turning ordinary values into Markdown reports, tables, issue comments, README snippets, and GitHub Actions summaries. It emits Markdown directly, has no runtime Markdown parser, and keeps the core API intentionally small.
 
 ## Installation
 
-Use the Git dependency from this repository:
+Use the Clojars coordinate:
 
 ```clojure
-{:deps {io.github.deadmeme5441/data-md
-        {:git/url "https://github.com/DeadMeme5441/data-md"
-         :git/tag "v0.1.0"
-         :git/sha "<release-sha>"}}}
+{:deps {net.clojars.deadmeme5441/data-md {:mvn/version "0.1.0"}}}
 ```
 
 For local development or local Maven installation:
@@ -22,6 +21,14 @@ clojure -T:build install
 ```
 
 The library runtime depends only on Clojure.
+
+## Compatibility
+
+- Clojure: `render`, `render-table`, `render-file`, `write-file!`, and CLI.
+- ClojureScript: `render` and `render-table` from the pure `.cljc` renderer namespaces.
+- Babashka: `render`, `render-table`, `render-file`, `write-file!`, and CLI.
+
+File I/O is JVM/Babashka-only. ClojureScript callers should parse data in their host environment and call `render` or `render-table`.
 
 ## Quick Start
 
@@ -195,6 +202,7 @@ Repo tasks:
 
 ```bash
 bb test
+bb cljs-test
 bb render test-resources/simple.edn
 ```
 
@@ -221,6 +229,7 @@ Run tests:
 
 ```bash
 clojure -M:test
+clojure -M:cljs-test
 bb test
 ```
 
@@ -235,6 +244,14 @@ Install locally:
 ```bash
 clojure -T:build install
 ```
+
+Deploy to Clojars:
+
+```bash
+clojure -T:build deploy
+```
+
+Deployment reads `CLOJARS_USERNAME` and `CLOJARS_PASSWORD` from the environment. The release workflow publishes when a `v*` tag is pushed.
 
 ## License
 

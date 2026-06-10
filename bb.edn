@@ -4,8 +4,14 @@
  {test {:doc "Run the Clojure test suite"
         :task (clojure "-M:test")}
 
+  cljs-test {:doc "Run the ClojureScript smoke test"
+             :task (clojure "-M:cljs-test")}
+
   render {:doc "Render an EDN file with the data-md CLI"
           :task (apply clojure "-M" "-m" "data-md.cli" *command-line-args*)}
 
   jar {:doc "Build the project jar"
-       :task (clojure "-T:build" "jar")}}}
+       :task (clojure "-T:build" "jar")}
+
+  deploy {:doc "Build and deploy the jar to Clojars"
+          :task (clojure "-T:build" "deploy")}}}

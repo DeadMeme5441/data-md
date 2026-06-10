@@ -1,11 +1,31 @@
 (ns build
-  (:require [clojure.tools.build.api :as b]))
+  (:require [clojure.tools.build.api :as b]
+            [deps-deploy.deps-deploy :as deps-deploy]))
 
-(def lib 'io.github.deadmeme5441/data-md)
-(def version "0.1.0")
+(def lib 'net.clojars.deadmeme5441/data-md)
+(def version (or (System/getenv "RELEASE_VERSION") "0.1.0"))
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
+(def pom-file
+  (format "%s/META-INF/maven/%s/%s/pom.xml"
+          class-dir
+          (namespace lib)
+          (name lib)))
+(def pom-data
+  [[:description "Render Clojure data and EDN files as readable GitHub-Flavored Markdown."]
+   [:url "https://github.com/DeadMeme5441/data-md"]
+   [:licenses
+    [:license
+     [:name "EPL-2.0"]
+     [:url "https://www.eclipse.org/legal/epl-2.0/"]]]
+   [:developers
+    [:developer
+     [:id "DeadMeme5441"]]]
+   [:scm
+    [:url "https://github.com/DeadMeme5441/data-md"]
+    [:connection "scm:git:https://github.com/DeadMeme5441/data-md.git"]
+    [:developerConnection "scm:git:ssh://git@github.com/DeadMeme5441/data-md.git"]]])
 
 (defn clean
   "Delete build artifacts."
@@ -22,11 +42,7 @@
                 :version version
                 :basis basis
                 :src-dirs ["src"]
-                :scm {:url "https://github.com/DeadMeme5441/data-md"}
-                :pom-data [[:licenses
-                            [:license
-                             [:name "EPL-2.0"]
-                             [:url "https://www.eclipse.org/legal/epl-2.0/"]]]]})
+                :pom-data pom-data})
   (b/jar {:class-dir class-dir :jar-file jar-file}))
 
 (defn install
@@ -38,3 +54,12 @@
               :version version
               :jar-file jar-file
               :class-dir class-dir}))
+
+(defn deploy
+  "Build and deploy the jar to Clojars."
+  [_]
+  (jar nil)
+  (deps-deploy/deploy {:installer :remote
+                       :sign-releases? false
+                       :pom-file pom-file
+                       :artifact jar-file}))

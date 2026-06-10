@@ -77,11 +77,26 @@
          body (if (str/ends-with? content "\n") content (str content "\n"))]
      (str fence (when-not (str/blank? info) info) "\n" body fence))))
 
+(defn- escape-pipes [s]
+  (loop [chars (seq s)
+         escaped? false
+         out []]
+    (if-let [ch (first chars)]
+      (let [pipe? (= \| ch)
+            backslash? (= \\ ch)
+            out (if (and pipe? (not escaped?))
+                  (conj out \\ \|)
+                  (conj out ch))]
+        (recur (next chars)
+               (and backslash? (not escaped?))
+               out))
+      (apply str out))))
+
 (defn escape-table-cell
   "Escape inline Markdown for use inside a GFM table cell."
   ([s] (escape-table-cell s {}))
   ([s opts]
    (-> (normalize-newlines s)
        (str/replace "\n" (:newline-in-table-cell opts "<br>"))
-       (str/replace #"(?<!\\)\|" "\\\\|")
+       escape-pipes
        str/trim)))

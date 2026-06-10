@@ -1,8 +1,10 @@
 /.cpcache/
+/.cljs_node_repl/
 /.clj-kondo/.cache/
 /.lsp/
 /.nrepl-port
 /.portal/
+/out/
 /target/
 *.class
 *.jar

@@ -1,5 +1,6 @@
 (ns data-md.table
   (:require [clojure.string :as str]
+            [data-md.compat :as compat]
             [data-md.escape :as escape]
             [data-md.labels :as labels]
             [data-md.pprint :as pprint]))
@@ -69,7 +70,7 @@
         (char? value)
         (uuid? value)
         (inst? value)
-        (instance? clojure.lang.TaggedLiteral value))
+        (compat/tagged-literal-value? value))
     (escape/code-span (pprint/compact-pr-str value))
     (or (map? value) (sequential? value) (set? value))
     (escape/code-span (pprint/compact-pr-str value))

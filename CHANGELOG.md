@@ -8,4 +8,5 @@ Initial MVP:
 - Render table-shaped row data as GFM pipe tables.
 - Read EDN files and write Markdown files.
 - Provide a minimal zero-runtime-dependency CLI.
-- Include Clojure, Babashka, golden-output, and build validation.
+- Support Clojure, ClojureScript, and Babashka for pure rendering.
+- Include Clojars deploy wiring, release workflow, golden-output, and build validation.
