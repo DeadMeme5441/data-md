@@ -1,0 +1,16 @@
+{:paths ["src"]
+
+ :deps
+ {org.clojure/clojure {:mvn/version "1.12.4"}}
+
+ :aliases
+ {:test
+  {:extra-paths ["test" "test-resources"]
+   :main-opts ["-m" "data-md.test-runner"]}
+
+  :build
+  {:deps {io.github.clojure/tools.build {:mvn/version "0.10.14"}}
+   :ns-default build}
+
+  :dev
+  {:extra-paths ["dev" "test" "test-resources"]}}}

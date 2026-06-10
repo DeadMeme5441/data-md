@@ -1,0 +1,11 @@
+{:paths ["src" "test" "test-resources"]
+
+ :tasks
+ {test {:doc "Run the Clojure test suite"
+        :task (clojure "-M:test")}
+
+  render {:doc "Render an EDN file with the data-md CLI"
+          :task (apply clojure "-M" "-m" "data-md.cli" *command-line-args*)}
+
+  jar {:doc "Build the project jar"
+       :task (clojure "-T:build" "jar")}}}

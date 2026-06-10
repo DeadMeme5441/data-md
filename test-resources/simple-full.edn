@@ -1,0 +1,4 @@
+{:project "foo"
+ :status :green
+ :deps [{:lib a :version "1.0"}
+        {:lib b :version "2.0"}]}
