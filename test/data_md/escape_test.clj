@@ -9,7 +9,10 @@
          (escape/escape-text "<https://example.com?q=a_b>")))
   (is (= "\\# heading" (escape/escape-text "# heading")))
   (is (= "\\- item" (escape/escape-text "- item")))
-  (is (= "1\\. item" (escape/escape-text "1. item"))))
+  (is (= "\\+ item" (escape/escape-text "+ item")))
+  (is (= "1\\. item" (escape/escape-text "1. item")))
+  (is (= "\\---" (escape/escape-text "---")))
+  (is (= "\\<b\\>x\\</b\\>" (escape/escape-text "<b>x</b>"))))
 
 (deftest heading-test
   (is (= "\\*danger\\*" (escape/escape-heading "*danger*")))
@@ -26,8 +29,11 @@
          (escape/fenced-code "{:a 1}" {:code-language "clojure"})))
   (is (= "````clojure\n{:doc \"contains ``` inside\"}\n````"
          (escape/fenced-code "{:doc \"contains ``` inside\"}"
-                             {:code-language "clojure"}))))
+                             {:code-language "clojure"})))
+  (is (= "~~~bad`lang\n{:a 1}\n~~~"
+         (escape/fenced-code "{:a 1}" {:code-language "bad`lang"}))))
 
 (deftest table-cell-test
   (is (= "a\\|b" (escape/escape-table-cell "a|b" {:newline-in-table-cell "<br>"})))
-  (is (= "a<br>b" (escape/escape-table-cell "a\nb" {:newline-in-table-cell "<br>"}))))
+  (is (= "a<br>b" (escape/escape-table-cell "a\nb" {:newline-in-table-cell "<br>"})))
+  (is (= "a / b" (escape/escape-table-cell "a\nb" {:newline-in-table-cell " / "}))))

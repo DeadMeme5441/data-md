@@ -75,6 +75,11 @@ jobs:
           RELEASE_VERSION: ${{ steps.ver.outputs.version }}
         run: clojure -T:build jar
 
+      - name: Run jar consumer smoke
+        env:
+          RELEASE_VERSION: ${{ steps.ver.outputs.version }}
+        run: bb consumer-smoke
+
       - name: Deploy to Clojars
         env:
           RELEASE_VERSION: ${{ steps.ver.outputs.version }}

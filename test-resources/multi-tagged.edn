@@ -1,0 +1,2 @@
+#my/tag {:a 1}
+{:b #other/tag [1 2]}

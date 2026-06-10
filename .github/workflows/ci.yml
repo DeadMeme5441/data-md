@@ -57,3 +57,6 @@ jobs:
 
       - name: Build jar
         run: clojure -T:build jar
+
+      - name: Run jar consumer smoke
+        run: bb consumer-smoke

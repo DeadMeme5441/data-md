@@ -3,7 +3,7 @@
             [deps-deploy.deps-deploy :as deps-deploy]))
 
 (def lib 'net.clojars.deadmeme5441/data-md)
-(def version (or (System/getenv "RELEASE_VERSION") "0.1.0"))
+(def version (or (System/getenv "RELEASE_VERSION") "0.2.0"))
 (def class-dir "target/classes")
 (def basis (b/create-basis {:project "deps.edn"}))
 (def jar-file (format "target/%s-%s.jar" (name lib) version))
@@ -17,8 +17,8 @@
    [:url "https://github.com/DeadMeme5441/data-md"]
    [:licenses
     [:license
-     [:name "EPL-2.0"]
-     [:url "https://www.eclipse.org/legal/epl-2.0/"]]]
+     [:name "MIT"]
+     [:url "https://opensource.org/license/mit"]]]
    [:developers
     [:developer
      [:id "DeadMeme5441"]]]
@@ -37,6 +37,7 @@
   [_]
   (clean nil)
   (b/copy-dir {:src-dirs ["src"] :target-dir class-dir})
+  (b/copy-file {:src "LICENSE" :target (str class-dir "/LICENSE")})
   (b/write-pom {:class-dir class-dir
                 :lib lib
                 :version version

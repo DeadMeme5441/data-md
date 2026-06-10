@@ -16,7 +16,13 @@
                         (md/render {:a 1} {:max-depth -1})))
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
                         #"Invalid data-md option"
-                        (md/render {:a 1} {:max-collection-size 0}))))
+                        (md/render {:a 1} {:max-collection-size 0})))
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"Invalid data-md option"
+                        (md/render {:a 1} {:nested-cell-style :code-block-string})))
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"Invalid data-md option"
+                        (md/render-table [{:a 1}] {:table-align {:a :bad}}))))
 
 (deftest scalar-rendering-test
   (is (= "`nil`\n" (md/render nil)))
@@ -27,7 +33,8 @@
   (is (= "`foo/bar`\n" (md/render 'foo/bar)))
   (is (= "`1/3`\n" (md/render 1/3)))
   (is (= "`42N`\n" (md/render 42N)))
-  (is (= "`1.2M`\n" (md/render 1.2M))))
+  (is (= "`1.2M`\n" (md/render 1.2M)))
+  (is (= "nil\n" (md/render nil {:nil-style :plain}))))
 
 (deftest key-label-test
   (is (= "Project Name" (labels/default-key-label :project-name)))
@@ -45,7 +52,22 @@
   (is (= "## Server\n\n- **Host:** localhost\n- **Port:** `8080`\n"
          (md/render {:server {:host "localhost" :port 8080}})))
   (is (= "## Service\n\n- **Name:** api\n- **Port:** `8080`\n- **Ssl?:** `false`\n"
-         (md/render {:service {:name "api" :port 8080 :ssl? false}}))))
+         (md/render {:service {:name "api" :port 8080 :ssl? false}})))
+  (is (= "- **Project:** foo\n- **Status:** `:green`\n"
+         (md/render {:project "foo" :status :green}
+                    {:map-style :list}))))
+
+(deftest multi-form-rendering-test
+  (is (= (md/render {:project "foo"})
+         (md/render-forms [{:project "foo"}])))
+  (is (= "## Form 1\n\n### Project\n\nfoo\n\n## Form 2\n\n### Status\n\n`:green`\n"
+         (md/render-forms [{:project "foo"} {:status :green}])))
+  (is (= "# Batch\n\n## Form 1\n\n### Project\n\nfoo\n\n## Form 2\n\n### Status\n\n`:green`\n"
+         (md/render-forms [{:project "foo"} {:status :green}]
+                          {:title "Batch"})))
+  (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                        #"EDN input is empty"
+                        (md/render-forms []))))
 
 (deftest nested-map-with-table-test
   (is (= "## Server\n\n- **Host:** localhost\n\n### Routes\n\n| Method | Path |\n| --- | --- |\n| `:get` | /health |\n| `:post` | /jobs |\n"
@@ -60,7 +82,11 @@
   (is (= "- `:alpha`\n- plain text\n- `{:x 1, :y 2}`\n"
          (md/render [:alpha "plain text" {:x 1 :y 2}])))
   (is (str/includes? (md/render (range) {:max-collection-size 3})
-                     "truncated after 3")))
+                     "truncated after 3"))
+  (is (str/includes? (md/render (range)
+                                {:seq-style :code-block
+                                 :max-collection-size 3})
+                     "truncated after 3 items")))
 
 (deftest set-rendering-test
   (is (= "- `:a`\n- `:b`\n"

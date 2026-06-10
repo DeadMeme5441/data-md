@@ -13,19 +13,13 @@
    :line-ending "\n"
    :max-depth 4
    :max-collection-size 100
-   :large-collection-strategy :truncate
    :map-style :auto
    :seq-style :auto
    :set-style :list
-   :empty-style :literal
    :record-style :map-with-type
    :include-metadata? false
-   :map-key-order :preserve-known-else-sort
-   :set-order :sort
-   :table-column-order :first-seen
    :columns nil
    :missing-cell ""
-   :nested-cell-style :inline-code
    :newline-in-table-cell "<br>"
    :table-align nil
    :string-style :plain
@@ -49,16 +43,10 @@
 (def valid-option-keys (set (keys default-options)))
 
 (def ^:private allowed-keywords
-  {:large-collection-strategy #{:truncate :code-block}
-   :map-style #{:auto :sections :list :code-block}
+  {:map-style #{:auto :sections :list :code-block}
    :seq-style #{:auto :table :list :code-block}
    :set-style #{:list :code-block}
-   :empty-style #{:literal}
    :record-style #{:map-with-type :map :code-block}
-   :map-key-order #{:preserve-known-else-sort}
-   :set-order #{:sort}
-   :table-column-order #{:first-seen}
-   :nested-cell-style #{:inline-code :code-block-string}
    :string-style #{:plain :code}
    :keyword-style #{:code :plain}
    :symbol-style #{:code :plain}
@@ -67,8 +55,9 @@
    :nil-style #{:code :plain}
    :char-style #{:code :plain}
    :inst-style #{:code :plain}
-   :uuid-style #{:code :plain}
-   :escape-mode #{:gfm}})
+   :uuid-style #{:code :plain}})
+
+(def ^:private alignments #{:left :center :right})
 
 (defn- invalid-option! [option value message]
   (throw (ex-info "Invalid data-md option"
@@ -108,9 +97,15 @@
      (when-not (or (nil? (:columns opts)) (vector? (:columns opts)))
        (invalid-option! :columns (:columns opts) "Expected vector or nil"))
      (when-not (or (nil? (:table-align opts))
-                   (contains? #{:left :center :right} (:table-align opts))
+                   (contains? alignments (:table-align opts))
                    (map? (:table-align opts)))
        (invalid-option! :table-align (:table-align opts) "Expected nil, alignment keyword, or map"))
+     (when (map? (:table-align opts))
+       (doseq [[column align] (:table-align opts)]
+         (when-not (contains? alignments align)
+           (invalid-option! :table-align
+                            (:table-align opts)
+                            (str "Invalid alignment for column " (pr-str column))))))
      (doseq [option [:key-label-fn :value-renderer :cell-renderer :sort-key-fn]]
        (when-not (or (nil? (get opts option)) (ifn? (get opts option)))
          (invalid-option! option (get opts option) "Expected function or nil")))
@@ -136,9 +131,6 @@
 (defn- heading [level label]
   (str (apply str (repeat level "#")) " " (escape/escape-heading label)))
 
-(defn- fenced [value opts]
-  (escape/fenced-code (pprint/pretty-str value) opts))
-
 (defn- empty-literal [value]
   (cond
     (map? value) "{}"
@@ -161,10 +153,54 @@
       (inst? value)
       (compat/tagged-literal-value? value)))
 
+(declare bounded-items bounded-printable)
+
+(defn- printable-map [m opts depth]
+  (let [{:keys [items truncated? total]} (bounded-items (labels/ordered-map-keys m opts) opts)
+        entries (map (fn [k]
+                       [k (bounded-printable (get m k) opts (inc depth))])
+                     items)]
+    (cond-> (into {} entries)
+      truncated? (assoc :data-md/truncated
+                        (str "truncated after " (:max-collection-size opts)
+                             (when total (str " of " total))
+                             " entries")))))
+
+(defn- printable-seq [coll opts depth]
+  (let [{:keys [items truncated? total]} (bounded-items coll opts)
+        values (mapv #(bounded-printable % opts (inc depth)) items)]
+    (cond-> values
+      truncated? (conj (str "... truncated after " (:max-collection-size opts)
+                            (when total (str " of " total))
+                            " items")))))
+
+(defn- printable-set [s opts depth]
+  (let [{:keys [items truncated? total]} (bounded-items (labels/ordered-set-values s opts) opts)
+        values (mapv #(bounded-printable % opts (inc depth)) items)]
+    (if truncated?
+      (conj values (str "... truncated after " (:max-collection-size opts)
+                        (when total (str " of " total))
+                        " items"))
+      (set values))))
+
+(defn- bounded-printable [value opts depth]
+  (cond
+    (or (scalar? value)
+        (> depth (:max-depth opts))) value
+    (map? value) (printable-map value opts depth)
+    (set? value) (printable-set value opts depth)
+    (sequential? value) (printable-seq value opts depth)
+    :else value))
+
+(defn- fenced [value opts]
+  (escape/fenced-code (pprint/pretty-str (bounded-printable value opts 0)) opts))
+
 (defn render-scalar [value ctx]
   (let [opts (:opts ctx)]
     (cond
-      (nil? value) (escape/code-span "nil")
+      (nil? value) (if (= :code (:nil-style opts))
+                     (escape/code-span "nil")
+                     "nil")
       (string? value) (if (or (empty? value) (= :code (:string-style opts)))
                         (escape/code-span (pprint/compact-pr-str value))
                         (escape/escape-text value))
@@ -299,6 +335,7 @@
     (cond
       (empty? m) (escape/code-span "{}")
       (= :code-block (:map-style opts)) (fenced m opts)
+      (= :list (:map-style opts)) (render-map-list m ctx)
       (or (= :sections (:map-style opts))
           (zero? (:depth ctx))) (render-map-sections m ctx)
       (every? (comp not complex-value?) (vals m)) (render-map-list m ctx)
@@ -354,17 +391,72 @@
         (render-value* value ctx))
       (render-value* value ctx))))
 
-(defn render-document [value opts]
-  (let [opts (normalize-options opts)
-        ctx {:opts opts
-             :depth 0
-             :path []
-             :heading-level (:heading-level opts)}
-        metadata-block (when (and (:include-metadata? opts) (meta value))
-                         (str "**Metadata:** "
-                              (escape/code-span (pprint/compact-pr-str (meta value)))))
-        body (render-value value ctx)
-        title-block (when (:title opts)
-                      (heading 1 (:title opts)))
-        doc (str/join "\n\n" (remove str/blank? [title-block metadata-block body]))]
+(defn- base-context [opts]
+  {:opts opts
+   :depth 0
+   :path []
+   :heading-level (:heading-level opts)})
+
+(defn- metadata-block [value opts]
+  (when (and (:include-metadata? opts) (meta value))
+    (str "**Metadata:** "
+         (escape/code-span (pprint/compact-pr-str (meta value))))))
+
+(defn- title-block [opts]
+  (when (:title opts)
+    (heading 1 (:title opts))))
+
+(defn- render-document-body [value opts ctx render-one]
+  (str/join "\n\n"
+            (remove str/blank?
+                    [(metadata-block value opts)
+                     (render-one value ctx)])))
+
+(defn- render-one-document [value opts render-one]
+  (let [body (render-document-body value opts (base-context opts) render-one)
+        doc (str/join "\n\n" (remove str/blank? [(title-block opts) body]))]
     (finalize-markdown doc opts)))
+
+(defn render-document [value opts]
+  (let [opts (normalize-options opts)]
+    (render-one-document value opts render-value)))
+
+(defn render-forms-document
+  "Render one or more top-level EDN forms as one Markdown document.
+
+  A single form renders exactly like render-document. Multiple forms are
+  rendered under numbered sections."
+  ([forms opts] (render-forms-document forms opts render-value))
+  ([forms opts render-one]
+   (let [opts (normalize-options opts)
+         realized-forms (vec forms)]
+     (cond
+       (empty? realized-forms)
+       (throw (ex-info "EDN input is empty" {:data-md/error :empty-input}))
+
+       (= 1 (count realized-forms))
+       (render-one-document (first realized-forms) opts render-one)
+
+       :else
+       (let [form-level (:heading-level opts)
+             sections (map-indexed
+                       (fn [idx value]
+                         (let [ctx (assoc (base-context opts)
+                                          :path [idx]
+                                          :heading-level (inc form-level))
+                               body (strip-trailing-newlines
+                                     (render-document-body value opts ctx render-one))]
+                           (str (heading form-level (str "Form " (inc idx)))
+                                "\n\n"
+                                body)))
+                       realized-forms)
+             doc (str/join "\n\n" (remove str/blank? (cons (title-block opts) sections)))]
+         (finalize-markdown doc opts))))))
+
+(defn render-table-forms-document
+  "Render one or more top-level EDN forms as table documents."
+  [forms opts]
+  (render-forms-document forms
+                         opts
+                         (fn [value ctx]
+                           (table/render-table* value (:opts ctx)))))

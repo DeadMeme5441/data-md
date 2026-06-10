@@ -13,5 +13,26 @@
   jar {:doc "Build the project jar"
        :task (clojure "-T:build" "jar")}
 
+  consumer-smoke {:doc "Build the jar and smoke-test it from outside the repo"
+                  :depends [jar]
+                  :task (let [version (or (System/getenv "RELEASE_VERSION") "0.2.0")
+                              jar-path (str (java.io.File.
+                                             (str (System/getProperty "user.dir")
+                                                  "/target/data-md-" version ".jar")))
+                              tmp-dir (str (java.nio.file.Files/createTempDirectory
+                                            "data-md-consumer-"
+                                            (make-array java.nio.file.attribute.FileAttribute 0)))
+                              input-path (str (java.io.File. tmp-dir "input.edn"))
+                              _ (spit input-path "{:a 1}")
+                              cp (.trim (:out (shell {:dir tmp-dir :out :string}
+                                              "clojure" "-Spath")))
+                              code (str "(require '[clojure.string :as str] '[data-md.core :as md])"
+                                        "(assert (= \"## A\\n\\n`1`\\n\" (md/render {:a 1})))"
+                                        "(assert (str/includes? (md/render-table [{:a 1}]) \"| A |\"))"
+                                        "(assert (str/includes? (md/render-file " (pr-str input-path) ") \"## A\"))"
+                                        "(println \"consumer smoke passed\")")]
+                          (shell {:dir tmp-dir}
+                                 "java" "-cp" (str cp ":" jar-path) "clojure.main" "-e" code))}
+
   deploy {:doc "Build and deploy the jar to Clojars"
           :task (clojure "-T:build" "deploy")}}}

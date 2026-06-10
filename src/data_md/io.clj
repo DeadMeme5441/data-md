@@ -19,23 +19,40 @@
     (default-reader-fn (:default-reader opts))
     (assoc :default (default-reader-fn (:default-reader opts)))))
 
-(defn read-edn-reader
-  "Read one EDN value from reader."
-  [reader opts]
-  (let [reader (if (instance? PushbackReader reader)
-                 reader
-                 (PushbackReader. reader))
-        value (edn/read (edn-read-options opts) reader)]
-    (if (= ::eof value)
-      (throw (ex-info "EDN input is empty" {:data-md/error :empty-input}))
-      value)))
+(defn- pushback-reader [reader]
+  (if (instance? PushbackReader reader)
+    reader
+    (PushbackReader. reader)))
 
-(defn read-edn-file
-  "Read one EDN value from path."
+(defn- read-edn-forms* [reader opts]
+  (let [reader (pushback-reader reader)
+        read-opts (edn-read-options opts)]
+    (loop [forms []]
+      (let [value (edn/read read-opts reader)]
+        (if (= ::eof value)
+          (if (empty? forms)
+            (throw (ex-info "EDN input is empty" {:data-md/error :empty-input}))
+            forms)
+          (recur (conj forms value)))))))
+
+(defn read-edn-forms-reader
+  "Read all EDN values from reader."
+  [reader opts]
+  (try
+    (read-edn-forms* reader opts)
+    (catch Throwable e
+      (if (= :empty-input (:data-md/error (ex-data e)))
+        (throw e)
+        (throw (ex-info "Could not read EDN input"
+                        {:data-md/error :read-error}
+                        e))))))
+
+(defn read-edn-forms-file
+  "Read all EDN values from path."
   [path opts]
   (try
     (with-open [reader (jio/reader path)]
-      (read-edn-reader reader opts))
+      (read-edn-forms* reader opts))
     (catch Throwable e
       (if (= :empty-input (:data-md/error (ex-data e)))
         (throw (ex-info "EDN input is empty"
@@ -47,6 +64,28 @@
                         {:data-md/error :read-error
                          :path (str path)}
                         e))))))
+
+(defn read-edn-reader
+  "Read exactly one EDN value from reader."
+  [reader opts]
+  (let [forms (read-edn-forms-reader reader opts)]
+    (if (= 1 (count forms))
+      (first forms)
+      (throw (ex-info "Expected exactly one EDN form"
+                      {:data-md/error :multiple-forms
+                       :count (count forms)})))))
+
+(defn read-edn-file
+  "Read exactly one EDN value from path."
+  [path opts]
+  (let [forms (read-edn-forms-file path opts)]
+    (if (= 1 (count forms))
+      (first forms)
+      (throw (ex-info "Expected exactly one EDN form"
+                      {:data-md/error :read-error
+                       :path (str path)
+                       :cause :multiple-forms
+                       :count (count forms)})))))
 
 (defn write-markdown-file!
   "Write markdown to path, creating parent directories as needed."

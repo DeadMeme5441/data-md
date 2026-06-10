@@ -11,7 +11,7 @@ Render Clojure data and EDN files as readable GitHub-Flavored Markdown.
 Use the Clojars coordinate:
 
 ```clojure
-{:deps {net.clojars.deadmeme5441/data-md {:mvn/version "0.1.0"}}}
+{:deps {net.clojars.deadmeme5441/data-md {:mvn/version "0.2.0"}}}
 ```
 
 For local development or local Maven installation:
@@ -66,8 +66,14 @@ foo
 (md/render data)
 (md/render data opts)
 
+(md/render-forms [data-1 data-2])
+(md/render-forms [data-1 data-2] opts)
+
 (md/render-table rows)
 (md/render-table rows opts)
+
+(md/read-edn-forms "input.edn")
+(md/read-edn-forms reader opts)
 
 (md/render-file "deps.edn")
 (md/render-file "deps.edn" opts)
@@ -76,13 +82,38 @@ foo
 (md/write-file! "deps.edn" "docs/deps.md" opts)
 ```
 
-All functions return strings except `write-file!`, which writes Markdown and returns the output path.
+Render functions return strings. `read-edn-forms` returns a vector of EDN values.
+`write-file!` writes Markdown and returns the output path.
 
 ## Render EDN Files
 
 ```clojure
 (md/render-file "deps.edn" {:title "deps.edn"})
 (md/write-file! "deps.edn" "docs/deps.md" {:title "deps.edn"})
+```
+
+Files may contain one or more top-level EDN forms. A single form renders exactly
+like `render`. Multiple forms render under numbered sections:
+
+```clojure
+{:project "foo"}
+{:status :green}
+```
+
+renders as:
+
+```markdown
+## Form 1
+
+### Project
+
+foo
+
+## Form 2
+
+### Status
+
+`:green`
 ```
 
 Unknown EDN tagged literals are preserved by default:
@@ -142,14 +173,27 @@ Common options:
 | --- | --- | --- |
 | `:title` | `nil` | Optional `#` document title |
 | `:heading-level` | `2` | Heading level for top-level map sections |
+| `:final-newline?` | `true` | Append one final newline |
+| `:line-ending` | `"\n"` | Output line ending |
 | `:max-depth` | `4` | Depth where nested data falls back to fenced code |
 | `:max-collection-size` | `100` | Maximum rendered items before truncation |
+| `:map-style` | `:auto` | `:auto`, `:sections`, `:list`, or `:code-block` |
+| `:seq-style` | `:auto` | `:auto`, `:table`, `:list`, or `:code-block` |
+| `:set-style` | `:list` | `:list` or `:code-block` |
+| `:record-style` | `:map-with-type` | `:map-with-type`, `:map`, or `:code-block` |
 | `:columns` | `nil` | Explicit table columns |
+| `:missing-cell` | `""` | Table cell text for absent values |
+| `:newline-in-table-cell` | `"<br>"` | Replacement for newlines inside table cells |
 | `:table-align` | `nil` | `:left`, `:center`, `:right`, or a column alignment map |
+| scalar style opts | mixed | `:plain` or `:code` for strings, keywords, symbols, numbers, booleans, nil, chars, instants, UUIDs |
+| `:code-language` | `"clojure"` | Fenced code block info string |
 | `:key-label-fn` | `nil` | Custom map-key label function |
 | `:value-renderer` | `nil` | Custom value renderer hook |
 | `:cell-renderer` | `nil` | Custom table cell renderer hook |
+| `:sort-key-fn` | `nil` | Custom deterministic sort key for unordered maps and sets |
 | `:include-metadata?` | `false` | Include metadata before rendered values |
+| `:readers` | `{}` | EDN tagged-literal readers for file/CLI input |
+| `:default-reader` | `:tagged-literal` | Unknown EDN tag handling; use `nil` to reject unknown tags |
 
 Unknown options are rejected with `ex-info` so typos fail early.
 
@@ -180,7 +224,13 @@ clojure -M -m data-md.cli input.edn
 clojure -M -m data-md.cli input.edn output.md
 clojure -M -m data-md.cli --title "deps.edn" input.edn output.md
 clojure -M -m data-md.cli --table rows.edn
+clojure -M -m data-md.cli --columns name,lang --table rows.edn
+clojure -M -m data-md.cli --align right --table rows.edn
+clojure -M -m data-md.cli --align-col lang=center --table rows.edn
 clojure -M -m data-md.cli --max-depth 3 --max-items 50 input.edn
+clojure -M -m data-md.cli --map-style list --nil-style plain input.edn
+clojure -M -m data-md.cli --line-ending crlf --no-final-newline input.edn
+clojure -M -m data-md.cli --version
 ```
 
 Use `-` for stdin or stdout:
@@ -188,6 +238,9 @@ Use `-` for stdin or stdout:
 ```bash
 cat input.edn | clojure -M -m data-md.cli - -
 ```
+
+CLI failures use exit code `2` for invalid CLI usage and `1` for read, render,
+or write failures.
 
 ## Babashka
 
@@ -231,6 +284,7 @@ Run tests:
 clojure -M:test
 clojure -M:cljs-test
 bb test
+bb consumer-smoke
 ```
 
 Build a jar:
@@ -255,4 +309,4 @@ Deployment reads `CLOJARS_USERNAME` and `CLOJARS_PASSWORD` from the environment.
 
 ## License
 
-EPL-2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).

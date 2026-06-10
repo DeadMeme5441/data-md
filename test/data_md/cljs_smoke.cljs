@@ -11,6 +11,8 @@
            (md/render {:project "foo" :status :green}))
   (assert= "| A |\n| --- |\n| `1` |\n| `2` |\n"
            (md/render-table [{:a 1} {:a 2}]))
+  (assert= "## Form 1\n\n### A\n\n`1`\n\n## Form 2\n\n### B\n\n`2`\n"
+           (md/render-forms [{:a 1} {:b 2}]))
   (when-not (str/includes? (md/render (range) {:max-collection-size 3})
                            "truncated after 3")
     (throw (js/Error. "Expected lazy sequence truncation")))
